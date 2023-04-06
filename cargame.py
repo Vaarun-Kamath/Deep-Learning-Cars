@@ -41,7 +41,7 @@ class Car:
         self.speed = 0
         self.acceleration = 0.2
         self.max_speed = 10
-        self.angle = 0
+        self.angle = maths.pi/2
         self.rotate_speed = 1
         self.max_angle = 45
 
@@ -54,7 +54,6 @@ class Car:
         elif self.x > screen_width: self.x = -self.width
         if self.y < -self.height:   self.y = screen_height
         elif self.y > screen_height: self.y = -self.height
-
         return self
     
     def reset(self):
@@ -63,14 +62,13 @@ class Car:
         self.speed = 0
         self.acceleration = 0.2
         self.max_speed = 10
-        self.angle = 0
+        self.angle = maths.pi/2
         self.rotate_speed = 1
         self.max_angle = 45
 
     def draw(self):
         rotated_image = pygame.transform.rotate(self.image, -self.angle*180/maths.pi)
         screen.blit(rotated_image, (self.x - rotated_image.get_width()/2, self.y - rotated_image.get_height()/2))
-
         return self
     
     def __repr__(self) -> str:
@@ -101,6 +99,35 @@ class Player(Car):
     
     def draw(self):
         return super().draw()
+    
+    def __repr__(self) -> str:
+        return f"You({self.x},{self.y})"
+
+class Computer(Car):
+    def __init__(self, x, y, image):
+        self.dist = [] # W NW N NE E
+        self.brain = NN()
+        super().__init__(x, y, image)
+    
+    def update(self):
+
+        super().update()
+    
+    def compute(self):
+
+        pass
+    
+    def __repr__(self) -> str:
+        return f"Comp({self.x},{self.y})"
+
+class NN:
+    def __init__(self, inputs) -> None:
+        self.weights = 0.1*np.random.randn(len(inputs), n_neurons)
+        self.layer_1 = np.array([])
+        self.biases =  np.zeros((1,n_neurons) )
+        pass
+    def output():
+        pass
 
 # define track class
 class Track:
@@ -126,13 +153,6 @@ class Track:
             self.reload_image((screen_width,screen_height))
         screen.blit(self.image, (0,0 #(screen_width-self.image.get_width())//2,(screen_height-self.image.get_height())//2
                     ))
-        # pygame.draw.circle(screen, (0,200,0), (screen_width//2,screen_height//2), screen_height//2)
-        # pygame.draw.circle(screen, (255,255,255), (screen_width//2,screen_height//2), screen_height//4)
-
-        # se2 = 70
-        # pygame.draw.ellipse(screen, (0,0,0), (0,0,screen_width,screen_height))
-        # pygame.draw.ellipse(screen, (255,255,255), (10,10,screen_width-20,screen_height-20))
-        # pygame.draw.ellipse(screen, (0,240,0), (se2,se2,screen_width-(se2*2),screen_height-(se2*2)))
 
     def reload_image(self, dim:tuple, /)-> pygame.Surface:
         assert isinstance(dim,tuple) and len(dim) == 2, "(width, height)"
@@ -140,10 +160,15 @@ class Track:
         img = cv.imread(track_img_path)
         re_sized_img = cv.resize(img, dim)
         self.track_points = cv.Canny(re_sized_img, 125, 175)
+        cv.imwrite("gray.png",self.track_points)
         track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)
+        cornrs = cv.goodFeaturesToTrack(self.track_points,10000,0.2,50)
+        if cornrs is not None and (corners:=np.intp(cornrs)) is not None:
+            for corner in corners:
+                cv.circle(track_img, corner.ravel(),5,(255,0,0),-1)
         return pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")
     
-    def detect_collisions(self, caravan:list):
+    def detect_collisions(self, caravan:list[Car])-> None:
         for car in caravan:
             if(self.has_colided(car)):
                 car.reset()
@@ -159,6 +184,11 @@ class Track:
                 if cv.pointPolygonTest(rect, (x, y), True) >= 0:
                     if self.track_points[y,x]:return True
         return False
+    
+    def get_distance(self, caravan:list[Car])-> None:
+        for car in caravan:
+            # TODO
+            car.dist = [] # W NW N NE E
 
 
 def main():
@@ -167,7 +197,7 @@ def main():
     car_image = pygame.image.load("car.png")
 
     # create car object
-    car = Player(screen_width/2-50, screen_height/2, car_image)
+    car = Player(80, screen_height/2, car_image)
     caravan.append(car)
 
     # create track object
@@ -191,6 +221,7 @@ def main():
 
         #keep the cars on the track
         track.detect_collisions(caravan)
+        track.get_distance(caravan)
 
         # draw background and track
         screen.fill((255, 255, 255))
