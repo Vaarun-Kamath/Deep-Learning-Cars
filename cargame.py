@@ -28,6 +28,10 @@ blue = (0, 0, 255)
 track_img_path = "track.png"
 running = False
 caravan = []
+UP = 1
+RIGHT = 2
+DOWN = 3
+LEFT = 4
 
 # define car class
 class Car:
@@ -45,7 +49,22 @@ class Car:
         self.rotate_speed = 1
         self.max_angle = 45
 
-    def update(self):
+    def update(self, direc, /):
+        if direc == UP:
+            self.speed += self.acceleration
+            if self.speed > self.max_speed:
+                self.speed = self.max_speed
+        elif direc == DOWN:
+            self.speed -= self.acceleration
+            if self.speed < -self.max_speed:
+                self.speed = -self.max_speed
+        
+        # handle car rotation
+        if direc == RIGHT:
+            self.angle += 0.05
+        elif direc == LEFT:
+            self.angle -= 0.05
+        
         # update car position
         self.x += self.speed * maths.cos(self.angle)
         self.y += self.speed * maths.sin(self.angle)
@@ -81,21 +100,11 @@ class Player(Car):
     def update(self):
         # update car position
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_UP]:
-            self.speed += self.acceleration
-            if self.speed > self.max_speed:
-                self.speed = self.max_speed
-        elif keys[pygame.K_DOWN]:
-            self.speed -= self.acceleration
-            if self.speed < -self.max_speed:
-                self.speed = -self.max_speed
-        # handle car rotation
-        if keys[pygame.K_RIGHT]:
-            self.angle += 0.05
-        elif keys[pygame.K_LEFT]:
-            self.angle -= 0.05
-        
-        return super().update()
+        if keys[pygame.K_UP]: direc = UP
+        elif keys[pygame.K_DOWN]: direc = DOWN
+        if keys[pygame.K_RIGHT]: direc = RIGHT
+        elif keys[pygame.K_LEFT]: direc = LEFT        
+        return super().update(direc)
     
     def draw(self):
         return super().draw()
@@ -158,14 +167,26 @@ class Track:
         assert isinstance(dim,tuple) and len(dim) == 2, "(width, height)"
         global track_img
         img = cv.imread(track_img_path)
-        re_sized_img = cv.resize(img, dim)
-        self.track_points = cv.Canny(re_sized_img, 125, 175)
+        img = cv.resize(img, dim)
+        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        # self.track_points = cv.Canny(img, 125, 175)
+        fltr = cv.bilateralFilter(gray, 10, 15, 15)
+        self.track_points = cv.adaptiveThreshold(fltr, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 11, 5)
         cv.imwrite("gray.png",self.track_points)
+        print(self.track_points.shape)
         track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)
         cornrs = cv.goodFeaturesToTrack(self.track_points,10000,0.2,50)
+        a,b = set(),set()
+        print(track_img.shape)
+        # for row in track_img:
+
         if cornrs is not None and (corners:=np.intp(cornrs)) is not None:
             for corner in corners:
-                cv.circle(track_img, corner.ravel(),5,(255,0,0),-1)
+                clr = random.randint(50, 255), random.randint(50, 255), random.randint(50, 255)
+                cv.circle(track_img, corner.ravel(),5,clr,-1)
+                # cv.circle(track_img, corner.ravel(),150,clr,1)
+        # cv.circle(track_img, (300,300),150,(255,255,0,0.5),1)
+        # cv.circle(track_img, (300,300),2,(255,255,0,0.5),1)
         return pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")
     
     def detect_collisions(self, caravan:list[Car])-> None:
@@ -225,6 +246,7 @@ def main():
 
         # draw background and track
         screen.fill((255, 255, 255))
+        # screen.blit()
         track.draw()
 
         # draw car
