@@ -3,7 +3,7 @@ import random
 import numpy as np
 import pygame
 import cv2 as cv
-
+import helper as hlp
 
 # initialize pygame
 pygame.init()
@@ -32,6 +32,7 @@ UP = 1
 RIGHT = 2
 DOWN = 3
 LEFT = 4
+FAIL =0
 
 # define car class
 class Car:
@@ -99,6 +100,7 @@ class Player(Car):
     
     def update(self):
         # update car position
+        direc = FAIL
         keys = pygame.key.get_pressed()
         if keys[pygame.K_UP]: direc = UP
         elif keys[pygame.K_DOWN]: direc = DOWN
@@ -119,8 +121,9 @@ class Computer(Car):
         super().__init__(x, y, image)
     
     def update(self):
+        direc = FAIL
 
-        super().update()
+        super().update(direc)
     
     def compute(self):
 
@@ -145,6 +148,7 @@ class Track:
         self.point_range = point_range
         self.points = []
         self.track_points:np.array = []
+        self.checkpoints:set[tuple[int,int],tuple[int,int]] = set()
         self.generate_points()
         self.image = self.reload_image(dim)
         
@@ -156,37 +160,28 @@ class Track:
             self.points.append((x, y))
         
     def draw(self):
-        # draw track using generated points
-        # pygame.draw.lines(screen, white, True, self.points, 10)
-        if not self.image:
-            self.reload_image((screen_width,screen_height))
+        if not self.image: self.reload_image((screen_width,screen_height))
         screen.blit(self.image, (0,0 #(screen_width-self.image.get_width())//2,(screen_height-self.image.get_height())//2
                     ))
 
     def reload_image(self, dim:tuple, /)-> pygame.Surface:
-        assert isinstance(dim,tuple) and len(dim) == 2, "(width, height)"
-        global track_img
-        img = cv.imread(track_img_path)
-        img = cv.resize(img, dim)
-        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        # self.track_points = cv.Canny(img, 125, 175)
-        fltr = cv.bilateralFilter(gray, 10, 15, 15)
-        self.track_points = cv.adaptiveThreshold(fltr, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 11, 5)
-        cv.imwrite("gray.png",self.track_points)
-        print(self.track_points.shape)
-        track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)
-        cornrs = cv.goodFeaturesToTrack(self.track_points,10000,0.2,50)
-        a,b = set(),set()
-        print(track_img.shape)
-        # for row in track_img:
+        self.track_points = hlp.get_new_img(dim,track_img_path)
+        self.checkpoints = hlp.get_checkpoints(self.track_points,dim)
+        #* DEBUG a,b,crnrs, checkpoints = hlp.get_checkpoints(self.track_points,dim)
 
-        if cornrs is not None and (corners:=np.intp(cornrs)) is not None:
-            for corner in corners:
-                clr = random.randint(50, 255), random.randint(50, 255), random.randint(50, 255)
-                cv.circle(track_img, corner.ravel(),5,clr,-1)
-                # cv.circle(track_img, corner.ravel(),150,clr,1)
-        # cv.circle(track_img, (300,300),150,(255,255,0,0.5),1)
-        # cv.circle(track_img, (300,300),2,(255,255,0,0.5),1)
+        track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)
+        #* for y,x in a:
+        #*     cv.circle(track_img, (x,y),9,(0,255,0),1)
+        #* for y,x in b:
+        #*     clr = random.randint(50, 255), random.randint(50, 255), random.randint(50, 255)
+        #*     cv.circle(track_img, (x,y),9,clr,-1)
+        #*     cv.circle(track_img, (x,y),150,clr,1)
+        #*     cv.rectangle(track_img, (x-140,y-140),(x+140,y+140),clr,1)
+        for (y1,x1),(y2,x2) in self.checkpoints:
+            cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),5)
+        #* DEBUG
+        #* for y,x in crnrs:# pt= (x,y)
+        #*     cv.circle(track_img, (int(y),int(x)),5,(255,0,0),-1)
         return pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")
     
     def detect_collisions(self, caravan:list[Car])-> None:
