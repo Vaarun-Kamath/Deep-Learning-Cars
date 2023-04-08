@@ -114,7 +114,7 @@ def get_current_chkpt(car, chkpts)->set|None:
     return None
 
 
-def pts_on_line(cx,cy,theta, /):
+def pts_on_line(theta, /):
     assert PI>=theta>=-PI, f'theta {theta} should be in radians, [-PI,PI]'
     x_step = (1,-1)[abs(theta)>PI/2]
     y_step = (1,-1)[theta<0]
@@ -134,7 +134,7 @@ def pts_on_line(cx,cy,theta, /):
 
 
 def get_dist(cx,cy, theta, g_img):
-    for y,x in pts_on_line( cx, cy, theta ):
+    for y,x in pts_on_line( theta ):
         if 0>int(y+cy) or 720<=int(y+cy) or  0>int(x+cx) or  1280<=int(x+cx) or g_img[int(y+cy), int(x+cx)]:
             return (y**2 + x**2)**0.5
             return y,x                                                                                                                      #* DEBUG
