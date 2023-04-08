@@ -33,6 +33,7 @@ RIGHT = 2
 DOWN = 3
 LEFT = 4
 FAIL =0
+PI = maths.pi
 
 # define car class
 class Car:
@@ -46,9 +47,13 @@ class Car:
         self.speed = 0
         self.acceleration = 0.2
         self.max_speed = 10
-        self.angle = maths.pi/2
+        self.angle = PI/2
         self.rotate_speed = 1
         self.max_angle = 45
+        self.checkpoints = set()
+
+
+        self.dist = []                                      #!
 
     def update(self, direc, /):
         if direc == UP:
@@ -61,18 +66,18 @@ class Car:
                 self.speed = -self.max_speed
         
         # handle car rotation
-        if direc == RIGHT:
-            self.angle += 0.05
-        elif direc == LEFT:
-            self.angle -= 0.05
+        if direc == RIGHT: self.angle += 0.05
+        elif direc == LEFT: self.angle -= 0.05
+        if self.angle >PI: self.angle -=2*PI
+        if self.angle <-PI: self.angle +=2*PI
         
         # update car position
         self.x += self.speed * maths.cos(self.angle)
         self.y += self.speed * maths.sin(self.angle)
         # wrap-around
-        if self.x < -self.width:    self.x = screen_width
-        elif self.x > screen_width: self.x = -self.width
-        if self.y < -self.height:   self.y = screen_height
+        if self.x < -self.width:     self.x = screen_width
+        elif self.x > screen_width:  self.x = -self.width
+        if self.y < -self.height:    self.y = screen_height
         elif self.y > screen_height: self.y = -self.height
         return self
     
@@ -82,13 +87,18 @@ class Car:
         self.speed = 0
         self.acceleration = 0.2
         self.max_speed = 10
-        self.angle = maths.pi/2
+        self.angle = PI/2
         self.rotate_speed = 1
         self.max_angle = 45
+        self.checkpoints = set()
 
     def draw(self):
         rotated_image = pygame.transform.rotate(self.image, -self.angle*180/maths.pi)
         screen.blit(rotated_image, (self.x - rotated_image.get_width()/2, self.y - rotated_image.get_height()/2))
+        # clr = [(255,0,0),(255,255,0),(0,255,0),(0,255,255),(0,0,255)]                                                                       #* DEBUG
+        # if len(self.dist) !=5: print(len(self.dist),self.dist)                                                                              #* DEBUG
+        # for i,(y,x) in enumerate(self.dist):                                                                                                #* DEBUG
+            # pygame.draw.line(screen,clr[i],(self.x,self.y),(self.x+x,self.y+y),1)                                                           #* DEBUG            
         return self
     
     def __repr__(self) -> str:
@@ -167,21 +177,19 @@ class Track:
     def reload_image(self, dim:tuple, /)-> pygame.Surface:
         self.track_points = hlp.get_new_img(dim,track_img_path)
         self.checkpoints = hlp.get_checkpoints(self.track_points,dim)
-        #* DEBUG a,b,crnrs, checkpoints = hlp.get_checkpoints(self.track_points,dim)
-
         track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)
-        #* for y,x in a:
-        #*     cv.circle(track_img, (x,y),9,(0,255,0),1)
-        #* for y,x in b:
-        #*     clr = random.randint(50, 255), random.randint(50, 255), random.randint(50, 255)
-        #*     cv.circle(track_img, (x,y),9,clr,-1)
-        #*     cv.circle(track_img, (x,y),150,clr,1)
-        #*     cv.rectangle(track_img, (x-140,y-140),(x+140,y+140),clr,1)
-        for (y1,x1),(y2,x2) in self.checkpoints:
-            cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),5)
-        #* DEBUG
-        #* for y,x in crnrs:# pt= (x,y)
-        #*     cv.circle(track_img, (int(y),int(x)),5,(255,0,0),-1)
+        # a,b,crnrs, self.checkpoints = hlp.get_checkpoints(self.track_points,dim)            #* DEBUG
+        # for y,x in a:                                                                       #* DEBUG
+        #     cv.circle(track_img, (x,y),9,(0,255,0),1)                                       #* DEBUG
+        # for y,x in b:                                                                       #* DEBUG
+        #     clr = random.randint(50, 255), random.randint(50, 255), random.randint(50, 255) #* DEBUG
+        #     cv.circle(track_img, (x,y),9,clr,-1)                                            #* DEBUG
+        #     cv.circle(track_img, (x,y),150,clr,1)                                           #* DEBUG
+        #     cv.rectangle(track_img, (x-140,y-140),(x+140,y+140),clr,1)                      #* DEBUG
+        # for (y1,x1),(y2,x2) in self.checkpoints:                                            #* DEBUG
+            # cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                  #* DEBUG        
+        # for y,x in crnrs:# pt= (x,y)                                                        #* DEBUG
+        #     cv.circle(track_img, (int(y),int(x)),5,(255,0,0),-1)                            #* DEBUG
         return pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")
     
     def detect_collisions(self, caravan:list[Car])-> None:
@@ -203,8 +211,32 @@ class Track:
     
     def get_distance(self, caravan:list[Car])-> None:
         for car in caravan:
-            # TODO
+            # if not isinstance(car, Computer): continue                        #!
             car.dist = [] # W NW N NE E
+            for ang in (-PI/2,-PI/4,0,PI/4,PI/2):
+                theta = car.angle + ang
+                if theta<-PI: theta += 2 * PI
+                elif theta>PI: theta -= 2 * PI
+                car.dist.append( 
+                    hlp.get_dist(
+                        car.x,
+                        car.y,
+                        theta,
+                        self.track_points
+                    )
+                )
+    
+    def handle_checkpoint(self, caravan:list[Car])-> None:
+        for car in caravan:
+            if (chk_pt := hlp.get_current_chkpt(car,self.checkpoints-car.checkpoints)) is None:continue
+            car.checkpoints.add(chk_pt)            
+            # print(len(car.checkpoints),'/',len(self.checkpoints))                                           #* DEBUG
+            # track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)                                   #* DEBUG
+            # for (y1,x1),(y2,x2) in self.checkpoints:                                                        #* DEBUG
+            #     cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                              #* DEBUG
+            # for (y1,x1),(y2,x2) in car.checkpoints:                                                         #* DEBUG
+            #     cv.line(track_img,(x1,y1),(x2,y2),(255,0,0),2)                                              #* DEBUG
+            # self.image =pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")         #* DEBUG
 
 
 def main():
@@ -237,13 +269,12 @@ def main():
 
         #keep the cars on the track
         track.detect_collisions(caravan)
+        track.handle_checkpoint(caravan)
         track.get_distance(caravan)
 
         # draw background and track
         screen.fill((255, 255, 255))
-        # screen.blit()
         track.draw()
-
         # draw car
         car.draw()
 
