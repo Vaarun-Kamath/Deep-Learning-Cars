@@ -44,7 +44,7 @@ class Car:
         self.image = image
         self.width = image.get_width()
         self.height = image.get_height()
-        self.speed = 0
+        self.speed = 0.5
         self.acceleration = 0.2
         self.max_speed = 10
         self.angle = PI/2
@@ -53,7 +53,7 @@ class Car:
         self.checkpoints = set()
 
 
-        self.dist = [0,0,0,0,0]                                      #!
+        # self.dist = np.array([0,0,0,0,0]                                #!
 
     def update(self, direc, /):
         if direc == UP:
@@ -84,7 +84,7 @@ class Car:
     def reset(self):
         print('reset!')
         self.x, self.y = self.start
-        self.speed = 0
+        self.speed = 0.5
         self.acceleration = 0.2
         self.max_speed = 10
         self.angle = PI/2
@@ -126,7 +126,8 @@ class Player(Car):
 
 class Computer(Car):
     def __init__(self, x, y, image):
-        self.dist = np.array([50,100,200,100,10]) # W NW N NE E
+        self.dist = np.array([0,0,0,0,0]) # W NW N NE E
+        # self.dist = self.weights = 0.1*np.random.randn(1,5) # W NW N NE E
         self.dist = self.dist.reshape(len(self.dist),1)
         self.brain = NN()
         self.controls = []
@@ -136,17 +137,33 @@ class Computer(Car):
         direc = FAIL
         self.compute() # U R D L
         ctrl_max = np.max(self.controls)
-        if ctrl_max > 0.5:
-            direc = self.controls.index(ctrl_max) + 1
+        print(f"{len(self.controls)} : ctrl_max = {ctrl_max}")
+        if ctrl_max > 0.2 and len(self.controls) == 4:
+            direc = self.controls.find(ctrl_max) + 1
+            print(f"Direc : {direc}")
         super().update(direc)
     
     def compute(self):
         # TODO - Get Distance in this line always
+        # print("------------")
+        # print(f"self.dist {self.dist.shape}:")
+        # print(self.dist)
+        # print("------------")
         self.brain.L1.forward_activate(self.dist)
         self.brain.L2.forward_activate(self.brain.L1.output)
         self.brain.L3.forward_activate(self.brain.L2.output)
-        self.controls = self.brain.L3.output.reshape(1,len(self.brain.L3.output))
-        # print(f"-- {self.brain.L3.output} --")
+        self.controls = self.brain.L3.output.reshape(1,len(self.brain.L3.output))[0]
+        # self.controls = self.brain.L3.output
+        print("------------")
+        print(f"self.brain.L1.output {self.brain.L1.output.shape}:")
+        print(self.brain.L1.output)
+        print(f"self.brain.L2.output {self.brain.L2.output.shape}:")
+        print(self.brain.L2.output)
+        print(f"self.brain.L3.output {self.brain.L3.output.shape}:")
+        print(self.brain.L3.output)
+        print(f"self.controls {self.controls.shape}:")
+        print(self.controls)
+        print("------------")
     
     def __repr__(self) -> str:
         return f"Comp({self.x},{self.y})"
@@ -187,7 +204,7 @@ class Track:
         #     cv.circle(track_img, (x,y),150,clr,1)                                           #* DEBUG
         #     cv.rectangle(track_img, (x-140,y-140),(x+140,y+140),clr,1)                      #* DEBUG
         # for (y1,x1),(y2,x2) in self.checkpoints:                                            #* DEBUG
-            # cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                  #* DEBUG        
+        #     cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                  #* DEBUG        
         # for y,x in crnrs:# pt= (x,y)                                                        #* DEBUG
         #     cv.circle(track_img, (int(y),int(x)),5,(255,0,0),-1)                            #* DEBUG
         return pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")
@@ -212,12 +229,12 @@ class Track:
     def get_distance(self, caravan:list[Car])-> None:
         for car in caravan:
             # if not isinstance(car, Computer): continue                        #!
-            car.dist = [] # W NW N NE E
+            dist = [] # W NW N NE E
             for ang in (-PI/2,-PI/4,0,PI/4,PI/2):
                 theta = car.angle + ang
                 if theta<-PI: theta += 2 * PI
                 elif theta>PI: theta -= 2 * PI
-                car.dist.append( 
+                dist.append( 
                     hlp.get_dist(
                         car.x,
                         car.y,
@@ -225,6 +242,7 @@ class Track:
                         self.track_points
                     )
                 )
+            car.dist = np.array(dist)
     
     def handle_checkpoint(self, caravan:list[Car])-> None:
         for car in caravan:

@@ -72,10 +72,15 @@ import numpy as np
 class Layer:
     def __init__(self,n_inputs,n_neurons,activation):
         self.weights = 0.1*np.random.randn(n_neurons,n_inputs)
+        print("===========")
+        print(f"(n_inputs,n_neurons) = ({n_inputs},{n_neurons})")
+        print(self.weights)
+        print("===========")
         self.biases =  np.zeros((n_neurons,1))
         self.activation = activation
     def forward_activate(self, inputs):
-        self.output = np.dot(self.weights,inputs) + self.biases
+        # self.output = np.dot(self.weights,inputs) + self.biases
+        self.output = np.dot(self.weights,inputs)
         if self.activation == 'relu':
             self.output = np.maximum(0,self.output)
         elif self.activation == 'softmax':
