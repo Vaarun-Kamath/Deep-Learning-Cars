@@ -137,9 +137,9 @@ class Computer(Car):
         direc = FAIL
         self.compute() # U R D L
         ctrl_max = np.max(self.controls)
-        print(f"{len(self.controls)} : ctrl_max = {ctrl_max}")
+        print(f"len(self.controls) = {len(self.controls)} : ctrl_max = {ctrl_max}")
         if ctrl_max > 0.2 and len(self.controls) == 4:
-            direc = self.controls.find(ctrl_max) + 1
+            direc = np.where(self.controls == ctrl_max)[0][0] + 1
             print(f"Direc : {direc}")
         super().update(direc)
     
