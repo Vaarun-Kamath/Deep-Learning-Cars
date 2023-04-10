@@ -1,4 +1,5 @@
 import math as maths
+import time
 import random
 import numpy as np
 import pygame
@@ -50,7 +51,8 @@ class Car:
         self.angle = PI/2
         self.rotate_speed = 1
         self.max_angle = 45
-        self.checkpoints = set()
+        self.checkpoints: set[tuple[tuple[int,int],float]] = set()
+        self.alive = True
 
 
         # self.dist = np.array([0,0,0,0,0]                                #!
@@ -82,9 +84,9 @@ class Car:
         return self
     
     def reset(self):
-        print('reset!')
+        print(f'reset!{self}')
         self.x, self.y = self.start
-        self.speed = 0.5
+        self.speed = 0
         self.acceleration = 0.2
         self.max_speed = 10
         self.angle = PI/2
@@ -98,7 +100,7 @@ class Car:
         # clr = [(255,0,0),(255,255,0),(0,255,0),(0,255,255),(0,0,255)]                                                                       #* DEBUG
         # if len(self.dist) !=5: print(len(self.dist),self.dist)                                                                              #* DEBUG
         # for i,(y,x) in enumerate(self.dist):                                                                                                #* DEBUG
-            # pygame.draw.line(screen,clr[i],(self.x,self.y),(self.x+x,self.y+y),1)                                                           #* DEBUG            
+        #     pygame.draw.line(screen,clr[i],(self.x,self.y),(self.x+x,self.y+y),1)                                                           #* DEBUG            
         return self
     
     def __repr__(self) -> str:
@@ -108,7 +110,7 @@ class Player(Car):
     def __init__(self, x, y, image):
         Car.__init__(self, x, y, image)
     
-    def update(self):
+    def update(self, **kwargs):
         # update car position
         direc = FAIL
         keys = pygame.key.get_pressed()
@@ -118,55 +120,59 @@ class Player(Car):
         elif keys[pygame.K_LEFT]: direc = LEFT        
         return super().update(direc)
     
-    def draw(self):
+    def draw(self, **kwargs):
         return super().draw()
     
     def __repr__(self) -> str:
         return f"You({self.x},{self.y})"
 
 class Computer(Car):
+    id = 0
     def __init__(self, x, y, image):
         self.dist = np.array([0,0,0,0,0]) # W NW N NE E
         # self.dist = self.weights = 0.1*np.random.randn(1,5) # W NW N NE E
         self.dist = self.dist.reshape(len(self.dist),1)
         self.brain = NN()
         self.controls = []
+        self.start_time = time.time()
+        Computer.id += 1
+        self.id = Computer.id
         super().__init__(x, y, image)
+
     
-    def update(self):
+    def reset(self):
+        print(f'reset!{self}')
+        super().reset()
+        self.alive = False
+    
+    def update(self,*,if_alive=False):
+        if if_alive and not self.alive: return
         direc = FAIL
         self.compute() # U R D L
         ctrl_max = np.max(self.controls)
-        print(f"len(self.controls) = {len(self.controls)} : ctrl_max = {ctrl_max}")
-        if ctrl_max > 0.2 and len(self.controls) == 4:
-            direc = np.where(self.controls == ctrl_max)[0][0] + 1
-            print(f"Direc : {direc}")
+        if ctrl_max > 0.2 and len(self.controls) == 4:            
+            direc = np.where(self.controls==ctrl_max)[0][0] + 1
+            # print(f"Direc : {direc}")
         super().update(direc)
     
     def compute(self):
-        # TODO - Get Distance in this line always
-        # print("------------")
-        # print(f"self.dist {self.dist.shape}:")
-        # print(self.dist)
-        # print("------------")
         self.brain.L1.forward_activate(self.dist)
         self.brain.L2.forward_activate(self.brain.L1.output)
         self.brain.L3.forward_activate(self.brain.L2.output)
         self.controls = self.brain.L3.output.reshape(1,len(self.brain.L3.output))[0]
-        # self.controls = self.brain.L3.output
-        print("------------")
-        print(f"self.brain.L1.output {self.brain.L1.output.shape}:")
-        print(self.brain.L1.output)
-        print(f"self.brain.L2.output {self.brain.L2.output.shape}:")
-        print(self.brain.L2.output)
-        print(f"self.brain.L3.output {self.brain.L3.output.shape}:")
-        print(self.brain.L3.output)
-        print(f"self.controls {self.controls.shape}:")
-        print(self.controls)
-        print("------------")
+        # print("-- Compute --")
+        # print(f"self.brain.L1.output {self.brain.L1.output.shape}:{self.brain.L1.output}")
+        # print(f"self.brain.L2.output {self.brain.L2.output.shape}:{self.brain.L2.output}")
+        # print(f"self.brain.L3.output {self.brain.L3.output.shape}:{self.brain.L3.output}")
+        # print(f"self.controls {self.controls.shape}:{self.controls}")
+        # print("------ ------")
+    
+    def draw(self,*,if_alive=False):
+        if if_alive and not self.alive: return self
+        return super().draw()
     
     def __repr__(self) -> str:
-        return f"Comp({self.x},{self.y})"
+        return f"Comp[{self.id}]({self.x},{self.y})"
 
 # define track class
 class Track:
@@ -209,10 +215,14 @@ class Track:
         #     cv.circle(track_img, (int(y),int(x)),5,(255,0,0),-1)                            #* DEBUG
         return pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")
     
-    def detect_collisions(self, caravan:list[Car])-> None:
-        for car in caravan:
+    def detect_collisions(self, caravan:list[Car], *, kill=False)-> None:
+        rmv_list = []
+        for i, car in enumerate(caravan):
             if(self.has_colided(car)):
+                if kill: rmv_list.append(i)
                 car.reset()
+        for ndx in rmv_list[::-1]:
+            caravan.pop(ndx)
     
     def has_colided(self, car:Car, /)-> bool:
         rect = cv.boxPoints(((car.x,car.y), (car.width,car.height), car.angle*180/maths.pi))
@@ -228,7 +238,7 @@ class Track:
     
     def get_distance(self, caravan:list[Car])-> None:
         for car in caravan:
-            # if not isinstance(car, Computer): continue                        #!
+            if not isinstance(car, Computer): continue                        #!
             dist = [] # W NW N NE E
             for ang in (-PI/2,-PI/4,0,PI/4,PI/2):
                 theta = car.angle + ang
@@ -247,7 +257,8 @@ class Track:
     def handle_checkpoint(self, caravan:list[Car])-> None:
         for car in caravan:
             if (chk_pt := hlp.get_current_chkpt(car,self.checkpoints-car.checkpoints)) is None:continue
-            car.checkpoints.add(chk_pt)            
+            car.checkpoints.add((chk_pt, time.time()))
+
             # print(len(car.checkpoints),'/',len(self.checkpoints))                                           #* DEBUG
             # track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)                                   #* DEBUG
             # for (y1,x1),(y2,x2) in self.checkpoints:                                                        #* DEBUG
@@ -263,8 +274,10 @@ def main():
     car_image = pygame.image.load("car.png")
 
     # create car object
-    car = Computer(80, screen_height/2, car_image)
-    caravan.append(car)
+    for i in range(50):
+        car = Computer(80, screen_height/2, car_image)
+        caravan.append(car)
+    caravan.append(Player(80, screen_height/2, car_image))
 
     # create track object
     track = Track(20, (100, 700), dim=(screen_width,screen_height))
@@ -283,10 +296,11 @@ def main():
                     track.reload_image((screen_width, screen_height))
 
         # update car and track
-        car.update()
+        for car in caravan:
+            car.update(if_alive=True)
 
         #keep the cars on the track
-        track.detect_collisions(caravan)
+        track.detect_collisions(caravan, kill=True)
         track.handle_checkpoint(caravan)
         track.get_distance(caravan)
 
@@ -294,7 +308,8 @@ def main():
         screen.fill((255, 255, 255))
         track.draw()
         # draw car
-        car.draw()
+        for car in caravan:
+            car.draw(if_alive=True)
 
         # update display
         pygame.display.update()
