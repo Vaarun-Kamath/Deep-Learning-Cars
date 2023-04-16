@@ -7,13 +7,18 @@ import cv2 as cv
 import helper as hlp
 from NeuralNetwork import NN
 import neat
+import sys
+
 # initialize pygame
 pygame.init()
 
 # set up the game screen
-screen_width = 1280
-screen_height = 720
-screen = pygame.display.set_mode((screen_width, screen_height))
+infoObject = pygame.display.Info()
+screen_width_custom = 1280
+screen_height_custom = 720
+screen_width_real = infoObject.current_w
+screen_height_real = infoObject.current_h
+screen = pygame.display.set_mode((infoObject.current_w, infoObject.current_h),pygame.FULLSCREEN)
 pygame.display.set_caption("Car Race Game")
 
 # set up the clock
@@ -27,16 +32,16 @@ green = (0, 255, 0)
 blue = (0, 0, 255)
 
 # GLOBALS
-track_img_path = "track.png"
+track_img_path = "track3.png"
 running = False
 neural_nets=[]
 caravan = []
-generation=0
+generation = 0
 UP = 1
 RIGHT = 2
 DOWN = 3
 LEFT = 4
-FAIL =0
+FAIL = 0
 PI = maths.pi
 
 # define car class
@@ -48,7 +53,7 @@ class Car:
         self.image = image
         self.width = image.get_width()
         self.height = image.get_height()
-        self.speed = 10
+        self.speed = 5
         self.acceleration = 5
         self.max_speed = 100
         self.angle = PI/2
@@ -80,16 +85,16 @@ class Car:
         self.x += self.speed * maths.cos(self.angle)
         self.y += self.speed * maths.sin(self.angle)
         # wrap-around
-        if self.x < -self.width:     self.x = screen_width
-        elif self.x > screen_width:  self.x = -self.width
-        if self.y < -self.height:    self.y = screen_height
-        elif self.y > screen_height: self.y = -self.height
+        if self.x < -self.width:     self.x = screen_width_custom
+        elif self.x > screen_width_custom:  self.x = -self.width
+        if self.y < -self.height:    self.y = screen_height_custom
+        elif self.y > screen_height_custom: self.y = -self.height
         return self
     
     def reset(self):
         print(f'reset!{self}')
         self.x, self.y = self.start
-        self.speed = 15
+        self.speed = 5
         self.acceleration = 5
         self.max_speed = 100
         self.angle = PI/2
@@ -199,8 +204,8 @@ class Track:
             self.points.append((x, y))
         
     def draw(self):
-        if not self.image: self.reload_image((screen_width,screen_height))
-        screen.blit(self.image, (0,0 #(screen_width-self.image.get_width())//2,(screen_height-self.image.get_height())//2
+        if not self.image: self.reload_image((screen_width_custom,screen_height_custom))
+        screen.blit(self.image, (0,0 #(screen_width_custom-self.image.get_width())//2,(screen_height_custom-self.image.get_height())//2
                     ))
 
     def reload_image(self, dim:tuple, /)-> pygame.Surface:
@@ -281,12 +286,12 @@ def main(genomes,config):
 
     # # create car object
     # for i in range(50):
-    #     car = Computer(80, screen_height/2, car_image)
+    #     car = Computer(80, screen_height_custom/2, car_image)
     #     caravan.append(car)
-    # caravan.append(Player(80, screen_height/2, car_image))
+    # caravan.append(Player(80, screen_height_custom/2, car_image))
 
     # # create track object
-    # track = Track(20, (100, 700), dim=(screen_width,screen_height))
+    # track = Track(20, (100, 700), dim=(screen_width_custom,screen_height_custom))
 
     # # game loop
     # running = True
@@ -299,7 +304,7 @@ def main(genomes,config):
     #             if event.key == pygame.K_ESCAPE:
     #                 running = False
     #             if event.key == pygame.K_r:
-    #                 track.reload_image((screen_width, screen_height))
+    #                 track.reload_image((screen_width_custom, screen_height_custom))
 
     #     # update car and track
     #     for car in caravan:
@@ -330,7 +335,7 @@ def main(genomes,config):
     # pygame.init()
 
     #Initializing Population
-    global caravan,neural_nets
+    global caravan,neural_nets, running
     caravan=[]
     neural_nets=[]
     car_image = pygame.image.load("car.png")
@@ -341,18 +346,19 @@ def main(genomes,config):
         g.fitness = 0
 
         # Init my cars
-        caravan.append(Computer(80,screen_height/2,car_image))
-    # caravan.append(Player(80, screen_height/2, car_image))
+        caravan.append(Computer(80,screen_height_custom/2,car_image))
+    # caravan.append(Player(80, screen_height_custom/2, car_image))
 
 
     # create track object
-    track = Track(20, (100, 700), dim=(screen_width,screen_height))
+    track = Track(20, (100, 700), dim=(screen_width_custom,screen_height_custom))
     
     generation_font = pygame.font.SysFont("Arial", 70)
     font = pygame.font.SysFont("Arial", 30)
 
+    global generation, running
+    exit = False
     running = True
-    global generation
     generation += 1
     while running:
         # event loop
@@ -362,8 +368,9 @@ def main(genomes,config):
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
+                    exit = True
                 if event.key == pygame.K_r:
-                    track.reload_image((screen_width, screen_height))
+                    track.reload_image((screen_width_custom, screen_height_custom))
         
         #Input my data and get result from network
         track.get_distance(caravan)
@@ -396,20 +403,20 @@ def main(genomes,config):
             break
 
         # draw background and track
-        screen.fill((255, 255, 255))
+        screen.fill((0, 0, 0))
         track.draw()
         # draw car
         for car in caravan:    
             car.draw(if_alive=True)
 
-        text = generation_font.render("Generation : " + str(generation), True, (255, 255, 0))
+        text = generation_font.render("Generation : " + str(generation), True, (255, 255, 255))
         text_rect = text.get_rect()
-        text_rect.center = (screen_width/2, 100)
+        text_rect.center = (screen_width_custom+(screen_width_real-screen_width_custom)/2, 100)
         screen.blit(text, text_rect)
 
-        text = font.render("remain cars : " + str(remain_cars), True, (255, 255, 0))
+        text = font.render("remain cars : " + str(remain_cars), True, (255, 255, 255))
         text_rect = text.get_rect()
-        text_rect.center = (screen_width/2, 230)
+        text_rect.center = (screen_width_custom+(screen_width_real-screen_width_custom)/2, 230)
         screen.blit(text, text_rect)
 
         # update display
@@ -417,7 +424,8 @@ def main(genomes,config):
 
         # set frame rate    
         clock.tick(60)
-            
+    if exit:
+        sys.exit(0)
 
 if __name__ == '__main__':
     
@@ -437,8 +445,3 @@ if __name__ == '__main__':
     p.run(main, 1000)
 
     # main()
-
-
-
-
-
