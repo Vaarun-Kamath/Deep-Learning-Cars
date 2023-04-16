@@ -60,9 +60,9 @@ class Car:
         self.rotate_speed = 1
         self.max_angle = 45
         self.checkpoints: set[tuple[
-            tuple[ tuple[int,int], tuple[int,int] ],
-            float
+            tuple[int,int], tuple[int,int]
         ]] = set()
+        self.checktimes:dict[tuple[int,int], float] = {}
         self.alive = True
 
     def update(self, direc, /):
@@ -101,6 +101,7 @@ class Car:
         self.rotate_speed = 1
         self.max_angle = 45
         self.checkpoints = set()
+        self.checktimes = {}
 
     def draw(self):
         rotated_image = pygame.transform.rotate(self.image, -self.angle*180/maths.pi)
@@ -268,13 +269,14 @@ class Track:
     def handle_checkpoint(self, caravan:list[Car], *, best=None)-> None:
         for car in caravan:
             if (chk_pt := hlp.get_current_chkpt(car,self.checkpoints-car.checkpoints)) is None:continue
-            car.checkpoints.add((chk_pt, time.time()))
+            car.checkpoints.add(chk_pt)
+            car.checktimes[chk_pt] = time.time()
         if best is None: return
         # print(len(best.checkpoints),'/',len(self.checkpoints))                                           #* DEBUG
         track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)                                   #* DEBUG
         for (y1,x1),(y2,x2) in self.checkpoints:                                                        #* DEBUG
             cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                              #* DEBUG
-        for ((y1,x1),(y2,x2)),_t in best.checkpoints:                                                         #* DEBUG
+        for ((y1,x1),(y2,x2)) in best.checkpoints:                                                         #* DEBUG
             cv.line(track_img,(x1,y1),(x2,y2),(255,0,0),2)                                              #* DEBUG
         self.image =pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")         #* DEBUG
 
@@ -393,7 +395,7 @@ def main(genomes,config):
             else: car.update(LEFT)
 
         #Handle collisions
-        track.detect_collisions(caravan, kill=False)
+        track.detect_collisions(caravan)
         track.handle_checkpoint(caravan, best=first_place_car)
 
         #Update car and check fitness
