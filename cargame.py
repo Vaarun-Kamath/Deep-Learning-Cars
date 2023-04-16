@@ -171,8 +171,11 @@ class Computer(Car):
         # print(f"self.controls {self.controls.shape}:{self.controls}")
         # print("------ ------")
     
-    def backward_propagate(self, state, action_probs, rewards, learning_rate):
+    def backward_propagate(self,*, learning_rate=0.001):
         # Compute the gradient of the expected reward with respect to the weights of the network
+        state = self.dist
+        action_probs = self.controls
+        rewards = len(self.checkpoints)
         dL_dW2 = np.dot(state.T, (action_probs - rewards))
         dL_dh = np.dot(action_probs - rewards, (self.brain.L3.weights).T)
         dL_dh *= (1 - np.power(np.tanh(np.dot(state, self.brain.L2.weights)), 2))
@@ -214,9 +217,9 @@ class Track:
 
     def reload_image(self, dim:tuple, /)-> pygame.Surface:
         self.track_points = hlp.get_new_img(dim,track_img_path)
-        self.checkpoints = hlp.get_checkpoints(self.track_points,dim)
+        # self.checkpoints = hlp.get_checkpoints(self.track_points,dim)
         track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)
-        # a,b,crnrs, self.checkpoints = hlp.get_checkpoints(self.track_points,dim)            #* DEBUG
+        a,b,crnrs, self.checkpoints = hlp.get_checkpoints(self.track_points,dim)            #* DEBUG
         # for y,x in a:                                                                       #* DEBUG
         #     cv.circle(track_img, (x,y),9,(0,255,0),1)                                       #* DEBUG
         # for y,x in b:                                                                       #* DEBUG
@@ -278,7 +281,7 @@ class Track:
             # track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)                                   #* DEBUG
             # for (y1,x1),(y2,x2) in self.checkpoints:                                                        #* DEBUG
             #     cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                              #* DEBUG
-            # for (y1,x1),(y2,x2) in car.checkpoints:                                                         #* DEBUG
+            # for ((y1,x1),(y2,x2)),_t in car.checkpoints:                                                         #* DEBUG
             #     cv.line(track_img,(x1,y1),(x2,y2),(255,0,0),2)                                              #* DEBUG
             # self.image =pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")         #* DEBUG
 
