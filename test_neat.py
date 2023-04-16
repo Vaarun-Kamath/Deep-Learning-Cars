@@ -53,7 +53,7 @@ class Car:
         self.image = image
         self.width = image.get_width()
         self.height = image.get_height()
-        self.speed = 5
+        self.speed = 10
         self.acceleration = 5
         self.max_speed = 100
         self.angle = PI/2
@@ -94,7 +94,7 @@ class Car:
     def reset(self):
         print(f'reset!{self}')
         self.x, self.y = self.start
-        self.speed = 5
+        self.speed = 10
         self.acceleration = 5
         self.max_speed = 100
         self.angle = PI/2
@@ -374,15 +374,25 @@ def main(genomes,config):
         
         #Input my data and get result from network
         track.get_distance(caravan)
+        max_checkpoint = -1
+        first_place_car = None
+        first_place_output = []
         for index, car in enumerate(caravan):
 
             output = neural_nets[index].activate(car.dist)
+            first_place_output = output
+            curr_check = len(car.checkpoints)
+            if curr_check > max_checkpoint:
+                max_checkpoint = curr_check
+                first_place_car = car
             # print(output)
             i = output.index(max(output))
             if i == 0:
                 car.update(UP)
             elif i == 1:
                 car.update(RIGHT)
+            elif i == 2:
+                car.update(DOWN)
             else:
                 car.update(LEFT)
 
@@ -418,6 +428,12 @@ def main(genomes,config):
         text_rect = text.get_rect()
         text_rect.center = (screen_width_custom+(screen_width_real-screen_width_custom)/2, 230)
         screen.blit(text, text_rect)
+
+        text = font.render(f"First Place Car :: {first_place_car}", True, (255, 255, 255))
+        text_rect = text.get_rect()
+        text_rect.center = (screen_width_custom+(screen_width_real-screen_width_custom)/2, 330)
+        screen.blit(text, text_rect)
+
 
         # update display
         pygame.display.update()
