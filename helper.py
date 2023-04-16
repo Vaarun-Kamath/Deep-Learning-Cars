@@ -39,21 +39,14 @@ def nbrs(x:tuple[int,int],dim:tuple[int,int],img,/,*,k=3)->tuple[tuple[int,int]]
 
 def get_checkpoints(g_img, dim, /):
     assert dim[0]>dim[1], '(width, height)'
-    outer, inner = get_corners(g_img, dim)
-    return{
-        (i,o)
-        for i in inner
-        for o in outer
-        if (i[0]-o[0])**2 + (i[1]-o[1])**2 <= 140**2
-    } # (inner(y,x) ,outer(y,x))
-    # outer, inner, corners = get_corners(g_img, dim)                                                                                       #* DEBUG
-    # chk_points = {                                                                                                                        #* DEBUG
-    #     (i,o)                                                                                                                             #* DEBUG
-    #     for i in inner                                                                                                                    #* DEBUG
-    #     for o in outer                                                                                                                    #* DEBUG
-    #     if (i[0]-o[0])**2 + (i[1]-o[1])**2 <= 140**2                                                                                      #* DEBUG
-    # }                                                                                                                                     #* DEBUG
-    # return outer, inner, corners, chk_points                                                                                              #* DEBUG
+    outer, inner, corners = get_corners(g_img, dim)                                                                                       #* DEBUG
+    chk_points = {                                                                                                                        #* DEBUG
+        (i,o)                                                                                                                             #* DEBUG
+        for i in inner                                                                                                                    #* DEBUG
+        for o in outer                                                                                                                    #* DEBUG
+        if (i[0]-o[0])**2 + (i[1]-o[1])**2 <= 140**2                                                                                      #* DEBUG
+    } # (inner(y,x) ,outer(y,x))                                                                                        #* DEBUG
+    return outer, inner, corners, chk_points                                                                                              #* DEBUG
 
 
 def get_corners(g_img, dim, /):
@@ -66,8 +59,7 @@ def get_corners(g_img, dim, /):
         if a&neighbours: outer.add((int(y),int(x)))
         elif b&neighbours: inner.add((int(y),int(x)))
         else: raise Exception('point couldn\'t find boundary --> Consider increase ing the \'k\' value')
-    return outer, inner
-    # return outer, inner, corners                                                                                                          #* DEBUG
+    return outer, inner, corners                                                                                                          #* DEBUG
 
 def get_sets(g_img,dim,/):
     "returns the outer and inner set of points in the track"
@@ -91,7 +83,7 @@ def get_sets(g_img,dim,/):
     return outer, inner
 
 
-def get_current_chkpt(car, chkpts)->set|None:
+def get_current_chkpt(car, chkpts)->tuple[tuple[int,int],tuple[int,int]]|None:
     X1 = car.x - car.width/2
     Y1 = car.y - car.height/2
     for (SY,SX),(EY,EX) in chkpts:
