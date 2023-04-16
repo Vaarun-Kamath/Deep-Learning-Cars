@@ -49,7 +49,7 @@ class Car:
         self.image = image
         self.width = image.get_width()
         self.height = image.get_height()
-        self.speed = 0.5
+        self.speed = 5
         self.acceleration = 0.2
         self.max_speed = 10
         self.angle = PI/2
@@ -90,7 +90,7 @@ class Car:
     def reset(self):
         print(f'reset!{self}')
         self.x, self.y = self.start
-        self.speed = 0
+        self.speed = 5
         self.acceleration = 0.2
         self.max_speed = 10
         self.angle = PI/2
@@ -171,7 +171,16 @@ class Computer(Car):
         # print(f"self.controls {self.controls.shape}:{self.controls}")
         # print("------ ------")
     
-    def backward_propagate(self):pass
+    def backward_propagate(self, state, action_probs, rewards, learning_rate):
+        # Compute the gradient of the expected reward with respect to the weights of the network
+        dL_dW2 = np.dot(state.T, (action_probs - rewards))
+        dL_dh = np.dot(action_probs - rewards, (self.brain.L3.weights).T)
+        dL_dh *= (1 - np.power(np.tanh(np.dot(state, self.brain.L2.weights)), 2))
+        dL_dW1 = np.dot(state.T, dL_dh)
+
+        # Update the weights of the network using the gradient
+        self.brain.L2.weights -= learning_rate * dL_dW1
+        self.brain.L3.weights -= learning_rate * dL_dW2
     
     def draw(self,*,if_alive=False):
         if if_alive and not self.alive: return self
@@ -280,7 +289,7 @@ def main():
     car_image = pygame.image.load("car.png")
 
     # create car object
-    for i in range(50):
+    for i in range(10):
         car = Computer(80, screen_height/2, car_image)
         caravan.append(car)
     caravan.append(Player(80, screen_height/2, car_image))
