@@ -331,8 +331,8 @@ class Track:
             if(self.has_colided(car)):
                 if kill: rmv_list.append(i)
                 car.reset()
-        # for ndx in rmv_list[::-1]:
-        #     caravan.pop(ndx)
+        for ndx in rmv_list[::-1]:
+            caravan.pop(ndx)
     
     def has_colided(self, car:Car, /)-> bool:
         rect = cv.boxPoints(((car.x,car.y), (car.width,car.height), car.angle*180/maths.pi))
@@ -348,7 +348,7 @@ class Track:
     
     def get_distance(self, caravan:list[Car])-> None:
         for car in caravan:
-            if not isinstance(car, Computer): continue                        #!
+            if not isinstance(car, Computer): continue
             dist = [] # W NW N NE E
             for ang in (-PI/2,-PI/4,0,PI/4,PI/2):
                 theta = car.angle + ang
@@ -367,15 +367,16 @@ class Track:
     def handle_checkpoint(self, caravan:list[Car], *, best = None)-> None:
         for car in caravan:
             if (chk_pt := hlp.get_current_chkpt(car,self.checkpoints-car.checkpoints)) is None:continue
-            car.checkpoints.add((chk_pt, 1))
-        if best is None: return
-        # print(len(best.checkpoints),'/',len(self.checkpoints))                                           #* DEBUG
-        track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)                                   #* DEBUG
-        for (y1,x1),(y2,x2) in self.checkpoints:                                                        #* DEBUG
-            cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                              #* DEBUG
-        for ((y1,x1),(y2,x2)),_t in best.checkpoints:                                                         #* DEBUG
-            cv.line(track_img,(x1,y1),(x2,y2),(255,0,0),2)                                              #* DEBUG
-        self.image =pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")         #* DEBUG
+            car.checkpoints.add(chk_pt)
+            car.checktimes[chk_pt] = time.time()
+        
+            # print(len(car.checkpoints),'/',len(self.checkpoints))                                           #* DEBUG
+            track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)                                   #* DEBUG
+            for (y1,x1),(y2,x2) in self.checkpoints:                                                        #* DEBUG
+                cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                              #* DEBUG
+            for ((y1,x1),(y2,x2)) in car.checkpoints:                                                         #* DEBUG
+                cv.line(track_img,(x1,y1),(x2,y2),(255,0,0),2)                                              #* DEBUG
+            self.image =pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")         #* DEBUG
 
 
 def main():
@@ -412,8 +413,8 @@ def main():
             car.update(if_alive=True)
 
         #keep the cars on the track
-        track.detect_collisions(caravan, kill=True)
-        track.handle_checkpoint(caravan,best = best_car)
+        track.detect_collisions(caravan)
+        track.handle_checkpoint(caravan)
         track.get_distance(caravan)
 
         # draw background and track
