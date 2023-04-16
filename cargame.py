@@ -239,8 +239,8 @@ class Track:
             if(self.has_colided(car)):
                 if kill: rmv_list.append(i)
                 car.reset()
-        for ndx in rmv_list[::-1]:
-            caravan.pop(ndx)
+        #for ndx in rmv_list[::-1]:
+            #caravan.pop(ndx)
     
     def has_colided(self, car:Car, /)-> bool:
         rect = cv.boxPoints(((car.x,car.y), (car.width,car.height), car.angle*180/maths.pi))
@@ -295,7 +295,7 @@ def main():
     for i in range(10):
         car = Computer(80, screen_height/2, car_image)
         caravan.append(car)
-    caravan.append(Player(80, screen_height/2, car_image))
+    #caravan.append(Player(80, screen_height/2, car_image))
 
     # create track object
     track = Track(20, (100, 700), dim=(screen_width,screen_height))
