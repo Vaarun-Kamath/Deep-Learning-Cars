@@ -28,7 +28,7 @@ blue = (0, 0, 255)
 # GLOBALS
 track_img_path = "track.png"
 running = False
-caravan = []
+caravan:list['Car'] = []
 UP = 1
 RIGHT = 2
 DOWN = 3
@@ -171,6 +171,8 @@ class Computer(Car):
         # print(f"self.controls {self.controls.shape}:{self.controls}")
         # print("------ ------")
     
+    def backward_propagate(self):pass
+    
     def draw(self,*,if_alive=False):
         if if_alive and not self.alive: return self
         return super().draw()
@@ -312,8 +314,14 @@ def main():
         screen.fill((255, 255, 255))
         track.draw()
         # draw car
+        count = 0
         for car in caravan:
             car.draw(if_alive=True)
+            count += car.alive
+        if count == 0:
+            for car in caravan:
+                if not isinstance(car, Computer):continue
+                car.backward_propagate()
 
         # update display
         pygame.display.update()
