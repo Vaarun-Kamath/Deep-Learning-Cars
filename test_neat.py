@@ -266,7 +266,7 @@ class Track:
                 )
             car.dist = dist
     
-    def handle_checkpoint(self, caravan:list[Car], *, best=None)-> None:
+    def handle_checkpoint(self, caravan:list[Car], *, best:Car=None)-> None:
         for car in caravan:
             if (chk_pt := hlp.get_current_chkpt(car,self.checkpoints-car.checkpoints)) is None:continue
             car.checkpoints.add(chk_pt)

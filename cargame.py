@@ -92,6 +92,7 @@ class Car:
         self.rotate_speed = 1
         self.max_angle = 45
         self.checkpoints = set()
+        self.checktimes = {}
 
     def draw(self):
         rotated_image = pygame.transform.rotate(self.image, -self.angle*180/maths.pi)
