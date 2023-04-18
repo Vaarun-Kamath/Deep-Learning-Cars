@@ -32,7 +32,7 @@ green = (0, 255, 0)
 blue = (0, 0, 255)
 
 # GLOBALS
-track_img_path = "track3.png"
+track_img_path = "track.png"
 running = False
 neural_nets=[]
 caravan = []
@@ -42,7 +42,13 @@ RIGHT = 2
 DOWN = 3
 LEFT = 4
 FAIL = 0
+MAX_SCORE = 0
+CAR_INITIAL_X = 80
+CAR_INITIAL_Y = screen_height_custom/2
 PI = maths.pi
+outputs = []
+controls = ["UP", "RIGHT", "DOWN", "LEFT"]
+penalty = 0
 
 # define car class
 class Car:
@@ -53,7 +59,7 @@ class Car:
         self.image = image
         self.width = image.get_width()
         self.height = image.get_height()
-        self.speed = 10
+        self.speed = 5
         self.acceleration = 5
         self.max_speed = 100
         self.angle = PI/2
@@ -70,14 +76,14 @@ class Car:
             self.speed += self.acceleration
             if self.speed > self.max_speed:
                 self.speed = self.max_speed
-        # elif direc == DOWN:
-        #     self.speed -= self.acceleration
-        #     if self.speed < -self.max_speed:
-        #         self.speed = -self.max_speed
+        elif direc == DOWN:
+            self.speed -= self.acceleration/2
+            if self.speed < -self.max_speed:
+                self.speed = -self.max_speed
         
         # handle car rotation
-        if direc == RIGHT: self.angle += 0.05
-        elif direc == LEFT: self.angle -= 0.05
+        if direc == RIGHT: self.angle += 0.09
+        elif direc == LEFT: self.angle -= 0.09
         if self.angle >PI: self.angle -=2*PI
         if self.angle <-PI: self.angle +=2*PI
         
@@ -94,9 +100,9 @@ class Car:
     def reset(self):
         print(f'reset!{self}')
         self.x, self.y = self.start
-        self.speed = 10
-        self.acceleration = 5
-        self.max_speed = 100
+        self.speed = 5
+        self.acceleration = 0.5
+        self.max_speed = 50
         self.angle = PI/2
         self.rotate_speed = 1
         self.max_angle = 45
@@ -275,9 +281,9 @@ class Track:
         # print(len(best.checkpoints),'/',len(self.checkpoints))                                           #* DEBUG
         track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)                                   #* DEBUG
         for (y1,x1),(y2,x2) in self.checkpoints:                                                        #* DEBUG
-            cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                              #* DEBUG
+            cv.line(track_img,(x1,y1),(x2,y2),(80,80,80),2)                                              #* DEBUG
         for ((y1,x1),(y2,x2)) in best.checkpoints:                                                         #* DEBUG
-            cv.line(track_img,(x1,y1),(x2,y2),(255,0,0),2)                                              #* DEBUG
+            cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                              #* DEBUG
         self.image =pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")         #* DEBUG
 
 
@@ -348,17 +354,17 @@ def main(genomes,config):
         g.fitness = 0
 
         # Init my cars
-        caravan.append(Computer(80,screen_height_custom/2,car_image))
+        caravan.append(Computer(CAR_INITIAL_X,CAR_INITIAL_Y,car_image))
     # caravan.append(Player(80, screen_height_custom/2, car_image))
 
 
     # create track object
     track = Track(20, (100, 700), dim=(screen_width_custom,screen_height_custom))
     
-    generation_font = pygame.font.SysFont("Arial", 70)
+    generation_font = pygame.font.SysFont("Arial", 40)
     font = pygame.font.SysFont("Arial", 30)
 
-    global generation, running
+    global generation, running, outputs
     exit = False
     running = True
     generation += 1
@@ -378,17 +384,17 @@ def main(genomes,config):
         track.get_distance(caravan)
         max_checkpoint = -1
         first_place_car = None
-        first_place_output = []
+
         for index, car in enumerate(caravan):
 
             output = neural_nets[index].activate(car.dist)
-            first_place_output = output
             curr_check = len(car.checkpoints)
             if curr_check > max_checkpoint:
                 max_checkpoint = curr_check
                 first_place_car = car
             # print(output)
             i = output.index(max(output))
+            outputs.append(i)
             if i == 0: car.update(UP)
             elif i == 1: car.update(RIGHT)
             elif i == 2: car.update(DOWN)
@@ -398,24 +404,46 @@ def main(genomes,config):
         track.detect_collisions(caravan)
         track.handle_checkpoint(caravan, best=first_place_car)
 
+        screen.fill((0, 0, 0))
+
         #Update car and check fitness
         remain_cars=0
         for i, car in enumerate(caravan):
             if car.get_alive():
                 remain_cars += 1
                 # car.update()
-                genomes[i][1].fitness += len(car.checkpoints)
+                # penalty = 0
+                # if(outputs[i] == 2):
+                #     penalty = 2
+                #     text = font.render("PENALTY IS SET", True, (255, 0, 0))
+                #     text_rect = text.get_rect()
+                #     text_rect.center = (screen_width_custom+(screen_width_real-screen_width_custom)/2, 400)
+                #     screen.blit(text, text_rect)
+
+                rewards = 0
+                for c in car.checkpoints:
+                    rewards += 10/(car.checktimes[c] - car.start_time)
+                genomes[i][1].fitness += rewards#-penalty
 
         # check
         if remain_cars == 0:
             break
 
         # draw background and track
-        screen.fill((0, 0, 0))
         track.draw()
         # draw car
-        for car in caravan:    
+        count = 0
+        max_score = 0
+        best_car = caravan[0]
+        for i,car in enumerate(caravan):
+            global MAX_SCORE
             car.draw(if_alive=True)
+            if max_score < len(car.checkpoints):
+                max_score = len(car.checkpoints)
+                if max_score > MAX_SCORE:
+                    MAX_SCORE = max_score
+                best_car = (car, i)
+            count += car.alive
 
         text = generation_font.render("Generation : " + str(generation), True, (255, 255, 255))
         text_rect = text.get_rect()
@@ -427,10 +455,28 @@ def main(genomes,config):
         text_rect.center = (screen_width_custom+(screen_width_real-screen_width_custom)/2, 230)
         screen.blit(text, text_rect)
 
-        text = font.render(f"First Place Car :: {first_place_car}", True, (255, 255, 255))
+        text = font.render(f":: Best Car Decision:: {controls[outputs[best_car[1]]]}", True, (255, 255, 255))
+        # text = font.render(f":: Best Fitness::", True, (255, 255, 255))
         text_rect = text.get_rect()
         text_rect.center = (screen_width_custom+(screen_width_real-screen_width_custom)/2, 330)
         screen.blit(text, text_rect)
+        outputs = []
+
+        print("=======BEST CAR========")
+        print(f"Alive Cars : {count}")
+        print(f"Best Score: {MAX_SCORE}")
+        # print(f"Score : {len(best_car[0].checkpoints)}")
+
+        # print(f"Layer 1 weights: {best_car.brain.L1.weights}")
+        # print(f"Layer 2 weights: {best_car.brain.L2.weights}")
+        # print(f"Layer 3 weights: {best_car.brain.L3.weights}")
+        # print(f"Layer 1 output: {best_car.brain.L1.output}")
+        # print(f"Layer 2 output: {best_car.brain.L2.output}")
+        # print(f"Up : {best_car.brain.L3.output[0]}")
+        # print(f"Right : {best_car.brain.L3.output[1]}")
+        # print(f"Down : {best_car.brain.L3.output[2]}")
+        # print(f"Left : {best_car.brain.L3.output[3]}")
+        print("=======================")
 
 
         # update display
