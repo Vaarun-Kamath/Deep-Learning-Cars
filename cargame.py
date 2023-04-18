@@ -26,6 +26,7 @@ green = (0, 255, 0)
 blue = (0, 0, 255)
 
 # GLOBALS
+global MAX_SCORE
 track_img_path = "track.png"
 running = False
 caravan:list['Car'] = []
@@ -34,9 +35,13 @@ RIGHT = 2
 DOWN = 3
 LEFT = 4
 FAIL = 0
+MAX_SCORE = 0
 
 NUMBER_OF_CARS = 10
-MUTATION_RATE = 0.04
+MUTATION_RATE = 0.01
+LEARNING_RATE = 0.001
+
+count = NUMBER_OF_CARS
 
 PI = maths.pi
 # define car class
@@ -157,11 +162,12 @@ class Computer(Car):
     def update(self,*,if_alive=False):
         if if_alive and not self.alive: return
         direc = FAIL
-        self.compute() # U R D L
+        self.compute() # U R D Lw
         ctrl_max = np.max(self.controls)
         if ctrl_max > 0.2 and len(self.controls) == 4:            
             direc = np.where(self.controls==ctrl_max)[0][0] + 1
             # print(f"Direc : {direc}")
+        self.controls[2] = 0
         super().update(direc)
     
     def compute(self):
@@ -169,6 +175,7 @@ class Computer(Car):
         self.brain.L2.forward_activate(self.brain.L1.output)
         self.brain.L3.forward_activate(self.brain.L2.output)
         self.controls = self.brain.L3.output.reshape(1,len(self.brain.L3.output))[0]
+        self.controls[2] = 0
         # print("-- Compute --")
         # print(f"self.brain.L1.output {self.brain.L1.output.shape}:{self.brain.L1.output}")
         # print(f"self.brain.L2.output {self.brain.L2.output.shape}:{self.brain.L2.output}")
@@ -176,12 +183,11 @@ class Computer(Car):
         # print(f"self.controls {self.controls.shape}:{self.controls}")
         # print("------ ------")
     
-    def backward_propagate(self,best,*, learning_rate= 0.002):
+    def backward_propagate(self,best,*, learning_rate= LEARNING_RATE):
         # Compute the gradient of the expected reward with respect to the weights of the network
         state = best.dist
         action_probs = best.controls
         rewards = len(best.checkpoints)
-        print(f"rewards : {rewards}")
         # print("=========================")
         # print(f"State {state.reshape(len(state),1).T.shape} :")
         # print(state.reshape(len(state),1).T)
@@ -199,17 +205,12 @@ class Computer(Car):
         action_probs = action_probs.reshape((1, 4))
         
         # Compute the gradient of the expected reward with respect to the weights of the network
-        dL_dZ3 = action_probs - rewards
-        #dL_dW3 = np.dot(self.h2.T, dL_dZ3)
+        dL_dZ3 = action_probs - (10/maths.exp(rewards))
         dL_dW3 = np.dot(best.brain.L2.output.reshape(len(best.brain.L2.output),1), dL_dZ3)
-        # dL_dh2 = np.dot(dL_dZ3, self.W3.T)
         dL_dh2 = np.dot(dL_dZ3, best.brain.L3.weights)
         dL_dh2 = np.maximum(0,dL_dh2)
-        # dL_dW2 = np.dot(self.h1.T, dL_dh2)
         dL_dW2 = np.dot(best.brain.L1.output.reshape(len(best.brain.L1.output),1), dL_dh2)
-        # dL_dh1 = np.dot(dL_dh2, self.W2.T)
         dL_dh1 = np.dot(dL_dh2, best.brain.L2.weights.T)
-        # dL_dh1[self.brain.L1.output <= 0] = 0
         dL_dh1 = np.maximum(0,dL_dh1)
         dL_dW1 = np.dot(state.T, dL_dh1)
 
@@ -221,66 +222,63 @@ class Computer(Car):
         # print(f"self.brain.L2.weights shape: {self.brain.L2.weights.shape}")
         # print(f"self.brain.L3.weights shape: {self.brain.L3.weights.shape}")
 
-        # print("...............................")
-        # print("Weights")
-        # print("L1")
-        # print(self.brain.L1.weights)
+        print("...............................")
+        print("Weights")
+        print("L1")
+        print(self.brain.L1.weights)
         self.brain.L1.weights = best.brain.L1.weights - (learning_rate * dL_dW1.T)
         self.brain.L1.weights,self.brain.L1.biases = self.mutate(self.brain.L1.weights, self.brain.L1.biases)
-        # print("NEW")
-        # print(self.brain.L1.weights)
-        # print('----------------')
-        # print("L2")
-        # print(self.brain.L2.weights)
+        print("NEW")
+        print(self.brain.L1.weights)
+        print(self.brain.L1.biases)
+        print('----------------')
+        print("L2")
+        print(self.brain.L2.weights)
         self.brain.L2.weights = best.brain.L2.weights - learning_rate * dL_dW2.T
         self.brain.L2.weights,self.brain.L2.biases = self.mutate(self.brain.L2.weights, self.brain.L2.biases)
-        # print("NEW")
-        # print(self.brain.L2.weights)
-        # print('----------------')
-        # print("L2")
-        # print(self.brain.L2.weights)
+        print("NEW")
+        print(self.brain.L2.weights)
+        print(self.brain.L1.biases)
+        print('----------------')
+        print("L3")
+        print(self.brain.L3.weights)
         self.brain.L3.weights = best.brain.L3.weights - learning_rate * dL_dW3.T
         self.brain.L3.weights,self.brain.L3.biases = self.mutate(self.brain.L3.weights, self.brain.L3.biases)
-        # print("NEW")
-        # print(self.brain.L2.weights)
-        # print('----------------')
-        # print("...............................")
-        # pygame.quit()
+        print("NEW")
+        print(self.brain.L3.weights)
+        print(self.brain.L3.biases)
+        print('----------------')
+        print("...............................")
         self.alive = True
         # pygame.quit()
 
-
-
-        # Update the weights of the network using the gradient
-        # dL_dW2 = np.dot(state.T, (action_probs - rewards))
-        # dL_dh = np.dot(action_probs - rewards, (self.brain.L3.weights).T)
-        # dL_dh *= (1 - np.power(np.tanh(np.dot(state, self.brain.L2.weights)), 2))
-        # dL_dW1 = np.dot(state.T, dL_dh)
-        # dL_dW3 = np.dot(self.brain.L2.weights.T, (action_probs - rewards))
-        # dL_dh2 = np.dot(action_probs - rewards, self.brain.L3.weights.T)
-        # dL_dh2 *= (1 - np.power(np.tanh(np.dot(self.brain.L2.weights, self.brain.L2.weights)), 2))
-        # dL_dW2 = np.dot(self.brain.L1.weights.T, dL_dh2)
-
-        # Update the weights of the network using the gradient
-        # self.brain.L2.weights -= learning_rate * dL_dW2
-        # self.brain.L3.weights -= learning_rate * dL_dW3
-
     def mutate(self, weights, biases, *, mutation_rate = MUTATION_RATE):
-        print("Prev Weights")
-        print(weights)
+        # print("Prev Weights")
+        # print(weights)
         for i, (w, b) in enumerate(zip(weights, biases)):
             rand_w = np.random.rand(*w.shape)
             rand_b = np.random.rand(*b.shape)
-            print(f"rand_w : {rand_w}")
-            print(f"rand_b : {rand_b}")
+            # print(f"rand_w : {rand_w}")
+            # print(f"rand_b : {rand_b}")
             
             mask_w = (rand_w < mutation_rate).astype(float)
             mask_b = (rand_b < mutation_rate).astype(float)
 
-            weights[i] = w + np.random.normal(scale = 0.1, size = w.shape) * mask_w
-            biases[i] = b + np.random.normal(scale = 0.1, size = b.shape) * mask_b
-        print("New Weights")
-        print(weights)
+            rand_norm_w = np.random.normal(scale = 0.1, size = w.shape)
+            rand_norm_b = np.random.normal(scale = 0.1, size = b.shape)
+            rand_norm_w = rand_norm_w*10
+            # for i in range(0,len(rand_norm_w)):
+            #     if rand_norm_w[i] > 1 or rand_norm_w[i] < -1:
+            #         rand_norm_w[i] = rand_norm_w[i]/10
+
+
+            print(f"rand_norm_w : {rand_norm_w}")
+            print(f"rand_norm_b : {rand_norm_b}")
+
+            weights[i] = w + rand_norm_w * mask_w
+            biases[i] = b + rand_norm_b* mask_b
+        # print("New Weights")
+        # print(weights)
         return weights, biases
     
     def draw(self,*,if_alive=False):
@@ -380,7 +378,7 @@ class Track:
         track_img = cv.cvtColor(self.track_points, cv.COLOR_GRAY2RGB)                                   #* DEBUG
         for (y1,x1),(y2,x2) in self.checkpoints:                                                        #* DEBUG
             cv.line(track_img,(x1,y1),(x2,y2),(0,255,0),2)                                              #* DEBUG
-        for ((y1,x1),(y2,x2)) in car.checkpoints:                                                         #* DEBUG
+        for ((y1,x1),(y2,x2)) in best.checkpoints:                                                         #* DEBUG
             cv.line(track_img,(x1,y1),(x2,y2),(255,0,0),2)                                              #* DEBUG
         self.image = pygame.image.frombuffer(track_img.tobytes(), track_img.shape[1::-1], "RGB")         #* DEBUG
 
@@ -404,6 +402,7 @@ def main():
     # game loop
     running = True
     while running:
+        global count
         # event loop
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -413,10 +412,10 @@ def main():
                     running = False
                 if event.key == pygame.K_r:
                     track.reload_image((screen_width, screen_height))
-
         # update car and track
-        for car in caravan:
-            car.update(if_alive=True)
+        if count!= 0:
+            for car in caravan:
+                car.update(if_alive=True)
 
         #keep the cars on the track
         track.detect_collisions(caravan)
@@ -431,9 +430,12 @@ def main():
         max_score = 0
         best_car = None
         for car in caravan:
+            global MAX_SCORE
             car.draw(if_alive=True)
             if max_score < len(car.checkpoints):
                 max_score = len(car.checkpoints)
+                if max_score > MAX_SCORE:
+                    MAX_SCORE = max_score
                 best_car = car
             count += car.alive
         if count == 0:
@@ -444,6 +446,7 @@ def main():
 
         print("=======BEST CAR========")
         print(f"Alive Cars : {count}")
+        print(f"Best Score: {MAX_SCORE}")
         print(f"Score : {len(best_car.checkpoints)}")
         # print(f"Layer 1 weights: {best_car.brain.L1.weights}")
         # print(f"Layer 2 weights: {best_car.brain.L2.weights}")
