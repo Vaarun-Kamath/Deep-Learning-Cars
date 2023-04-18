@@ -37,6 +37,7 @@ running = False
 neural_nets=[]
 caravan = []
 generation = 0
+hide =3
 UP = 1
 RIGHT = 2
 DOWN = 3
@@ -98,7 +99,7 @@ class Car:
         return self
     
     def reset(self):
-        print(f'reset!{self}')
+        # print(f'reset!{self}')
         self.x, self.y = self.start
         self.speed = 5
         self.acceleration = 0.5
@@ -142,7 +143,7 @@ class Player(Car):
         return super().draw()
     
     def __repr__(self) -> str:
-        return f"You({self.x},{self.y})"
+        return f"You({round(self.x,2)},{round(self.y,2)})"
 
 class Computer(Car):
     id = 0
@@ -159,7 +160,6 @@ class Computer(Car):
 
     
     def reset(self):
-        print(f'reset!{self}')
         super().reset()
         self.alive = False
     
@@ -190,7 +190,7 @@ class Computer(Car):
         return super().draw()
     
     def __repr__(self) -> str:
-        return f"Comp[{self.id}]({self.x},{self.y})"
+        return f"Comp[{self.id}]({round(self.x,2)},{round(self.y,2)})"
 
 # define track class
 class Track:
@@ -364,7 +364,7 @@ def main(genomes,config):
     generation_font = pygame.font.SysFont("Arial", 40)
     font = pygame.font.SysFont("Arial", 30)
 
-    global generation, running, outputs
+    global generation, running, outputs, hide
     exit = False
     running = True
     generation += 1
@@ -377,8 +377,10 @@ def main(genomes,config):
                 if event.key == pygame.K_ESCAPE:
                     running = False
                     exit = True
-                if event.key == pygame.K_r:
+                elif event.key == pygame.K_r:
                     track.reload_image((screen_width_custom, screen_height_custom))
+                elif event.key == pygame.K_h:
+                    hide =(hide +1)&3
         
         #Input my data and get result from network
         track.get_distance(caravan)
@@ -430,14 +432,14 @@ def main(genomes,config):
             break
 
         # draw background and track
-        track.draw()
+        if hide&2:track.draw()
         # draw car
         count = 0
         max_score = 0
         best_car = caravan[0]
         for i,car in enumerate(caravan):
             global MAX_SCORE
-            car.draw(if_alive=True)
+            if hide&1:car.draw(if_alive=True)
             if max_score < len(car.checkpoints):
                 max_score = len(car.checkpoints)
                 if max_score > MAX_SCORE:
