@@ -77,9 +77,10 @@ class Car:
             if self.speed > self.max_speed:
                 self.speed = self.max_speed
         elif direc == DOWN:
-            self.speed -= self.acceleration/2
-            if self.speed < -self.max_speed:
-                self.speed = -self.max_speed
+            if self.speed >= 5.1:
+                self.speed -= self.acceleration/2
+            # if self.speed < -self.max_speed:
+            #     self.speed = -self.max_speed
         
         # handle car rotation
         if direc == RIGHT: self.angle += 0.09
@@ -253,7 +254,7 @@ class Track:
                 if cv.pointPolygonTest(rect, (x, y), True) >= 0:
                     if self.track_points[y,x]:return True
         return False
-    
+        
     def get_distance(self, caravan:list[Car])-> None:
         for car in caravan:
             if not isinstance(car, Computer): continue
